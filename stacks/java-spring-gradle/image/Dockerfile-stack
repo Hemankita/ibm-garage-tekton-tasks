@@ -1,0 +1,107 @@
+# Dockerfile for building the stack
+
+FROM adoptopenjdk:11-jdk-hotspot
+
+CMD ["gradle"]
+
+ENV GRADLE_HOME /opt/gradle
+
+RUN set -o errexit -o nounset \
+    && echo "Adding gradle user and group" \
+    && groupadd --system --gid 1000 gradle \
+    && useradd --system --gid gradle --uid 1000 --shell /bin/bash --create-home gradle \
+    && mkdir /home/gradle/.gradle \
+    && chown --recursive gradle:gradle /home/gradle \
+    \
+    && echo "Symlinking root Gradle cache to gradle Gradle cache" \
+    && ln -s /home/gradle/.gradle /root/.gradle
+
+VOLUME /home/gradle/.gradle
+
+WORKDIR /home/gradle
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        fontconfig \
+        unzip \
+        wget \
+        \
+        bzr \
+        git \
+        git-lfs \
+        mercurial \
+        openssh-client \
+        subversion \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the common components across into your stack filesystem (most stacks will need these)
+COPY ./LICENSE /licenses/
+COPY ./project /project
+COPY ./config /config
+
+# Set the working directory to the project directory, which typically contains the stack components and userapp
+WORKDIR /project
+
+ENV GRADLE_VERSION 5.6.4
+
+# See https://appsody.dev/docs/stacks/environment-variables for more information about each variable.
+
+ENV APPSODY_DOCKER_IMAGE="gradle-build"
+
+# Mount directories
+ENV APPSODY_MOUNTS=/:/project/userapp
+
+ENV APPSODY_PROJECT_DIR="/project"
+
+
+# Define a volume for dependencies to be stored between runs, for example
+ENV APPSODY_DEPS=/project/deps
+
+# Directories to watch for changes in
+ENV APPSODY_WATCH_DIR=/project/userapp
+
+# Directories to ignore changes in
+ENV APPSODY_WATCH_IGNORE_DIR=
+
+# Regex expression to describe which files are watched for changes in
+ENV APPSODY_WATCH_REGEX="^.*.sh$"
+
+# Optional command executed before RUN/TEST/DEBUG
+ENV APPSODY_INSTALL=
+
+# Command executed in 'run' mode
+ENV APPSODY_RUN="/project/gradlew build && cp build/libs/demo-0.0.1-SNAPSHOT.jar ./app.jar && java -jar ./app.jar"
+
+# Command executed in 'run' mode when a change is detected
+ENV APPSODY_RUN_ON_CHANGE=$APPSODY_RUN
+
+# Signals whether to kill the server process before starting the ON_CHANGE action
+ENV APPSODY_RUN_KILL=false
+
+# Command executed in 'debug' mode
+ENV APPSODY_DEBUG="echo -n \"Debugging \"; /bin/bash /project/userapp/hello.sh"
+
+# Command executed in 'debug' mode when a change is detected
+ENV APPSODY_DEBUG_ON_CHANGE=$APPSODY_DEBUG
+
+# Signals whether to kill the server process before starting the ON_CHANGE action
+ENV APPSODY_DEBUG_KILL=false
+
+# Command executed in 'test' mode
+ENV APPSODY_TEST="/project/userapp/tests/test.sh"
+
+# Command executed in 'test' mode when a change is detected
+ENV APPSODY_TEST_ON_CHANGE=$APPSODY_TEST
+
+# Signals whether to kill the server process before starting the ON_CHANGE action
+ENV APPSODY_TEST_KILL=false
+
+ENV PORT=8080
+
+# Expose the relevant ports (change this to be specific to your application).
+EXPOSE $APPSODY_PORT
+
+# Update Dockerfile
+RUN sed -i -e "s|{${APPSODY_DOCKER_IMAGE}}|${GRADLE_VERSION}-gradle-build|" /project/Dockerfile
+
+CMD ["/bin/bash"]

@@ -1,0 +1,10 @@
+name: java springboot gradle stack
+version: 0.1.0
+description: java springboot gradle stack to help creation of more appsody stacks
+license: Apache-2.0
+language: java
+maintainers:
+  - name: Hemankita Perabathini
+    email: hemankita.perabathini@ibm.com
+    github-id: Hemankita
+default-template: catalyst-template-java-spring
